@@ -1,0 +1,24 @@
+{
+  "name": "automerge-diy-vue-hooks",
+  "version": "0.1.0",
+  "description": "Reactive Vue hooks for Automerge documents",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Limeth/automerge-diy-vue-hooks.git"
+  },
+  "main": "index.ts",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "automerge",
+    "vue"
+  ],
+  "author": "Limeth",
+  "license": "MIT",
+  "dependencies": {
+    "@automerge/automerge-repo": "^1.2.1",
+    "cabbages": "^0.2.6",
+    "vue": "^3.5.13"
+  }
+}
