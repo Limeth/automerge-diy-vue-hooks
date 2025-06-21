@@ -4,20 +4,21 @@ import * as Cabbages from "cabbages";
 
 export const changeSubtree = Symbol('changeSubtree');
 
+/// `Rop` stands for Read-Only Proxy.
 /// A proxy object representing a Vue-reactive document.
 /// It contains all of the original fields, as well as a `changeSubtree` convenience method
 /// (accessible via the `changeSubtree` symbol exported by this library), which acts like
 /// `DocHandle<T>.change()` and operates on the subtree the method was invoked on, rather
 /// than the whole document.
-export type MyProxy<T> = {
-  [P in keyof T]: T[P] extends object ? MyProxy<T[P]> : T[P]
+export type Rop<T> = {
+  readonly [P in keyof T]: T[P] extends object ? Rop<T[P]> : T[P]
 } & {
   [changeSubtree]: (changeSubtreeCallback: (subtree: T) => void) => void,
 };
 
 /// Creates a Vue-reactive proxy object of the a document, given a doc handle.
-export function makeReactive<T>(handle: A.DocHandle<T>): Ref<MyProxy<A.Doc<T>>> {
-  function makeProxy<U extends object>(obj: U, path: (string | number)[]): MyProxy<U> {
+export function makeReactive<T>(handle: A.DocHandle<T>): Ref<Rop<A.Doc<T>>> {
+  function makeProxy<U extends object>(obj: U, path: (string | number)[]): Rop<U> {
     var proxy: Array<any> | Object | undefined;
     
     // Include all regular properties in the proxy object, creating proxies
@@ -65,11 +66,11 @@ export function makeReactive<T>(handle: A.DocHandle<T>): Ref<MyProxy<A.Doc<T>>> 
 
     // FIXME: Slow? https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/setPrototypeOf
     // Object.setPrototypeOf(proxy, Object.getPrototypeOf(obj));
-    return proxy as MyProxy<U>;
+    return proxy as Rop<U>;
   }
 
-  const docProxy: MyProxy<A.Doc<T>> = makeProxy(handle.doc(), []);
-  const docRef = ref<MyProxy<A.Doc<T>>>(docProxy) as Ref<MyProxy<A.Doc<T>>>;
+  const docProxy: Rop<A.Doc<T>> = makeProxy(handle.doc(), []);
+  const docRef = ref<Rop<A.Doc<T>>>(docProxy) as Ref<Rop<A.Doc<T>>>;
 
   handle.on('change', (payload) => {
     console.trace("[automerge-diy-vue-hooks] Got 'change' event, applying patches.", payload);
