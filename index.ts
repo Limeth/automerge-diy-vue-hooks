@@ -1,4 +1,4 @@
-import { reactive } from 'vue';
+import { reactive, Reactive, Ref, ref, UnwrapRef } from 'vue';
 import * as A from "@automerge/automerge-repo";
 import * as Cabbages from "cabbages";
 
@@ -16,55 +16,71 @@ export type MyProxy<T> = {
 };
 
 /// Creates a Vue-reactive proxy object of the a document, given a doc handle.
-export async function makeReactive<T>(handle: A.DocHandle<T>): Promise<MyProxy<A.Doc<T>> | undefined> {
-  function makeProxy<U extends object>(obj: U, path: string[]): MyProxy<U> {
-    const proxy = {
-      // Include all regular properties in the proxy object, creating proxies
-      // from any properties which hold an object.
-      ...Object.fromEntries(Object.getOwnPropertyNames(obj).map((key) => {
+export function makeReactive<T>(handle: A.DocHandle<T>): Ref<MyProxy<A.Doc<T>>> {
+  function makeProxy<U extends object>(obj: U, path: (string | number)[]): MyProxy<U> {
+    var proxy: Array<any> | Object | undefined;
+    
+    // Include all regular properties in the proxy object, creating proxies
+    // from any properties which hold an object.
+    if (Array.isArray(obj))
+    {
+      proxy = new Array();
+      for (const [index, value] of obj.entries())
+      {
+        if (typeof value === 'object')
+          (proxy as Array<any>).push(makeProxy(value, [...path, index]))
+        else
+          (proxy as Array<any>).push(value);
+      }
+    }
+    else
+    {
+      proxy = new Object();
+      for (const key of Object.getOwnPropertyNames(obj))
+      {
         const value = (obj as any)[key];
         if (typeof value === 'object')
-          return [key, makeProxy(value, [...path, key])];
+          proxy[key] = makeProxy(value, [...path, key]);
         else
-          return [key, value];
-      })) as U,
-      // Include all symbol properties as well, without modification.
-      ...Object.fromEntries(Object.getOwnPropertySymbols(obj).map((symbol) => {
-        return [symbol, (obj as any)[symbol]]
-      })),
-      // Add custom methods as symbol properties, so that they don't interfere with regular usage.
-      [changeSubtree]: (changeSubtreeCallback: (subtree: U) => void) => {
-        // `changeSubtree` operates on `A.DocHandle` directly.
-        // The changes to the `A.DocHandle` are then applied to `newObj` via
-        // the `on('change')` handler.
-        handle.change((doc: A.Doc<T>) => {
-          var subtree: any = doc;
-          for (const pathSegment of path)
-            subtree = subtree[pathSegment];
-          changeSubtreeCallback(subtree);
-        })
-      },
-    } as MyProxy<U>;
+          proxy[key] = value;
+      }
+    }
+
+    // Include all symbol properties as well, without modification.
+    for (const symbol of Object.getOwnPropertySymbols(obj))
+      proxy[symbol] = obj[symbol];
+
+    // Add custom methods as symbol properties, so that they don't interfere with regular usage.
+    proxy[changeSubtree] = (changeSubtreeCallback: (subtree: U) => void) => {
+      // `changeSubtree` operates on `A.DocHandle` directly.
+      // The changes to the `A.DocHandle` are then applied to `newObj` via
+      // the `on('change')` handler.
+      handle.change((doc: A.Doc<T>) => {
+        var subtree: any = doc;
+        for (const pathSegment of path)
+          subtree = subtree[pathSegment];
+        changeSubtreeCallback(subtree);
+      })
+    }
+
     // FIXME: Slow? https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/setPrototypeOf
     // Object.setPrototypeOf(proxy, Object.getPrototypeOf(obj));
-    return proxy;
+    return proxy as MyProxy<U>;
   }
 
-  const doc: A.Doc<T> | undefined = await handle.doc();
-
-  // TODO: There's a PR for this in AM
-  if (doc === undefined) {
-    return undefined;
-  }
-
-  const docProxy: MyProxy<A.Doc<T>> = makeProxy(doc, []);
-  const docRef: MyProxy<A.Doc<T>> = reactive(docProxy) as any as MyProxy<A.Doc<T>>;
+  const docProxy: MyProxy<A.Doc<T>> = makeProxy(handle.doc(), []);
+  const docRef = ref<MyProxy<A.Doc<T>>>(docProxy) as Ref<MyProxy<A.Doc<T>>>;
 
   handle.on('change', (payload) => {
     console.trace("[automerge-diy-vue-hooks] Got 'change' event, applying patches.", payload);
-    for (const patch of payload.patches)
-      Cabbages.apply(docRef, ...Cabbages.fromAutomerge(patch, payload));
-      // APatcher.patch(docRef, patch); -- fails on `A.Counter`s
+    // On any change, replace the whole document.
+    docRef.value = makeProxy(handle.doc(), []);
+
+    // TODO: Consider changing only updated parts of the document.
+    //       Currently not reliable.
+    // for (const patch of payload.patches)
+    //   Cabbages.apply(docRef.value, ...Cabbages.fromAutomerge(patch, payload));
+    //   // APatcher.patch(docRef.value, patch); -- fails on `A.Counter`s
   });
 
   return docRef;

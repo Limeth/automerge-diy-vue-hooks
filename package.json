@@ -1,6 +1,6 @@
 {
   "name": "automerge-diy-vue-hooks",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Reactive Vue hooks for Automerge documents",
   "repository": {
     "type": "git",
@@ -17,8 +17,8 @@
   "author": "Limeth",
   "license": "MIT",
   "dependencies": {
-    "@automerge/automerge-repo": "^1.2.1",
-    "cabbages": "^0.2.6",
-    "vue": "^3.5.13"
+    "@automerge/automerge-repo": "^2.0.4",
+    "cabbages": "^0.2.8",
+    "vue": "^3.5.17"
   }
 }
