@@ -4,15 +4,18 @@ import * as Cabbages from "cabbages";
 
 export const changeSubtree = Symbol('changeSubtree');
 
+/// A type with read-only properties.
+export type Ro<T> = {
+  readonly [P in keyof T]: T[P] extends object ? Rop<T[P]> : T[P]
+}
+
 /// `Rop` stands for Read-Only Proxy.
 /// A proxy object representing a Vue-reactive document.
 /// It contains all of the original fields, as well as a `changeSubtree` convenience method
 /// (accessible via the `changeSubtree` symbol exported by this library), which acts like
 /// `DocHandle<T>.change()` and operates on the subtree the method was invoked on, rather
 /// than the whole document.
-export type Rop<T> = {
-  readonly [P in keyof T]: T[P] extends object ? Rop<T[P]> : T[P]
-} & {
+export type Rop<T> = Ro<T> & {
   [changeSubtree]: (changeSubtreeCallback: (subtree: T) => void) => void,
 };
 
@@ -73,7 +76,7 @@ export function makeReactive<T>(handle: A.DocHandle<T>): Ref<Rop<A.Doc<T>>> {
   const docRef = ref<Rop<A.Doc<T>>>(docProxy) as Ref<Rop<A.Doc<T>>>;
 
   handle.on('change', (payload) => {
-    console.trace("[automerge-diy-vue-hooks] Got 'change' event, applying patches.", payload);
+    console.debug("[automerge-diy-vue-hooks] Got 'change' event, applying patches.", payload);
     // On any change, replace the whole document.
     docRef.value = makeProxy(handle.doc(), []);
 
