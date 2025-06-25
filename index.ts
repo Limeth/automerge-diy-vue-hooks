@@ -4,10 +4,18 @@ import * as A from "@automerge/automerge-repo";
 
 export const changeSubtree = Symbol('changeSubtree');
 
+export type Incomplete<T> = {
+  [P in keyof T]?: T[P]
+}
+
 /// A type with read-only properties.
 export type Ro<T> = {
   readonly [P in keyof T]: T[P] extends object ? Rop<T[P]> : T[P]
 }
+
+export type Proxy<T> = {
+  [changeSubtree]: (changeSubtreeCallback: (subtree: T) => void) => void,
+};
 
 /// `Rop` stands for Read-Only Proxy.
 /// A proxy object representing a Vue-reactive document.
@@ -15,52 +23,50 @@ export type Ro<T> = {
 /// (accessible via the `changeSubtree` symbol exported by this library), which acts like
 /// `DocHandle<T>.change()` and operates on the subtree the method was invoked on, rather
 /// than the whole document.
-export type Rop<T> = Ro<T> & {
-  [changeSubtree]: (changeSubtreeCallback: (subtree: T) => void) => void,
-};
+export type Rop<T> = Ro<T> & Proxy<T>;
 
 /// Creates a Vue-reactive proxy object of the a document, given a doc handle.
 export function makeReactive<T>(handle: A.DocHandle<T>): Ref<Rop<A.Doc<T>>> {
   function makeProxy<U extends object>(obj: U, path: (string | number)[]): Rop<U> {
-    let proxy: Array<unknown> | object | undefined;
+    let proxy;
     
     // Include all regular properties in the proxy object, creating proxies
     // from any properties which hold an object.
     if (Array.isArray(obj))
     {
-      proxy = [];
+      proxy = [] as Array<Rop<U>> & Incomplete<Proxy<T>>;
       for (const [index, value] of obj.entries())
       {
-        if (typeof value === 'object')
-          (proxy as Array<unknown>).push(makeProxy(value, [...path, index]))
+        if (value !== null && typeof value === 'object')
+          proxy.push(makeProxy(value, [...path, index]))
         else
-          (proxy as Array<unknown>).push(value);
+          proxy.push(value);
       }
     }
     else
     {
-      proxy = new Object();
-      for (const key of Object.getOwnPropertyNames(obj))
+      proxy = {} as Incomplete<Rop<U>>;
+      for (const key of Object.getOwnPropertyNames(obj) as Array<keyof U & string>)
       {
-        const value = (obj as unknown)[key];
-        if (typeof value === 'object')
-          proxy[key] = makeProxy(value, [...path, key]);
+        const value = obj[key];
+        if (value !== null && typeof value === 'object')
+          (proxy[key] as Rop<U[keyof U & string] & object>) = makeProxy(value, [...path, key]);
         else
-          proxy[key] = value;
+          (proxy[key] as U[keyof U & string]) = value;
       }
     }
 
     // Include all symbol properties as well, without modification.
-    for (const symbol of Object.getOwnPropertySymbols(obj))
-      proxy[symbol] = obj[symbol];
+    for (const symbol of Object.getOwnPropertySymbols(obj) as Array<keyof U & symbol>)
+      (proxy[symbol as keyof typeof proxy] as unknown) = obj[symbol];
 
     // Add custom methods as symbol properties, so that they don't interfere with regular usage.
-    proxy[changeSubtree] = (changeSubtreeCallback: (subtree: U) => void) => {
+    (proxy[changeSubtree] as ((changeSubtreeCallback: (subtree: U) => void) => void)) = (changeSubtreeCallback: (subtree: U) => void) => {
       // `changeSubtree` operates on `A.DocHandle` directly.
       // The changes to the `A.DocHandle` are then applied to `newObj` via
       // the `on('change')` handler.
       handle.change((doc: A.Doc<T>) => {
-        let subtree: unknown = doc;
+        let subtree: any = doc;
         for (const pathSegment of path)
           subtree = subtree[pathSegment];
         changeSubtreeCallback(subtree as U);
