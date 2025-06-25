@@ -1,6 +1,6 @@
 {
   "name": "automerge-diy-vue-hooks",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "description": "Reactive Vue hooks for Automerge documents",
   "repository": {
     "type": "git",
