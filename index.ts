@@ -1,6 +1,6 @@
-import { reactive, Reactive, Ref, ref, UnwrapRef } from 'vue';
+import { type Ref, ref } from 'vue';
 import * as A from "@automerge/automerge-repo";
-import * as Cabbages from "cabbages";
+// import * as Cabbages from "cabbages";
 
 export const changeSubtree = Symbol('changeSubtree');
 
@@ -22,19 +22,19 @@ export type Rop<T> = Ro<T> & {
 /// Creates a Vue-reactive proxy object of the a document, given a doc handle.
 export function makeReactive<T>(handle: A.DocHandle<T>): Ref<Rop<A.Doc<T>>> {
   function makeProxy<U extends object>(obj: U, path: (string | number)[]): Rop<U> {
-    var proxy: Array<any> | Object | undefined;
+    let proxy: Array<unknown> | object | undefined;
     
     // Include all regular properties in the proxy object, creating proxies
     // from any properties which hold an object.
     if (Array.isArray(obj))
     {
-      proxy = new Array();
+      proxy = [];
       for (const [index, value] of obj.entries())
       {
         if (typeof value === 'object')
-          (proxy as Array<any>).push(makeProxy(value, [...path, index]))
+          (proxy as Array<unknown>).push(makeProxy(value, [...path, index]))
         else
-          (proxy as Array<any>).push(value);
+          (proxy as Array<unknown>).push(value);
       }
     }
     else
@@ -42,7 +42,7 @@ export function makeReactive<T>(handle: A.DocHandle<T>): Ref<Rop<A.Doc<T>>> {
       proxy = new Object();
       for (const key of Object.getOwnPropertyNames(obj))
       {
-        const value = (obj as any)[key];
+        const value = (obj as unknown)[key];
         if (typeof value === 'object')
           proxy[key] = makeProxy(value, [...path, key]);
         else
@@ -60,10 +60,10 @@ export function makeReactive<T>(handle: A.DocHandle<T>): Ref<Rop<A.Doc<T>>> {
       // The changes to the `A.DocHandle` are then applied to `newObj` via
       // the `on('change')` handler.
       handle.change((doc: A.Doc<T>) => {
-        var subtree: any = doc;
+        let subtree: unknown = doc;
         for (const pathSegment of path)
           subtree = subtree[pathSegment];
-        changeSubtreeCallback(subtree);
+        changeSubtreeCallback(subtree as U);
       })
     }
 

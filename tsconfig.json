@@ -1,0 +1,12 @@
+{
+  "include": ["index.ts"],
+  "compilerOptions": {
+    "noEmit": true,
+    "target": "es6",
+    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.node.tsbuildinfo",
+
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "types": ["node"]
+  }
+}
