@@ -12,6 +12,8 @@
     "lint:oxlint": "oxlint . --fix -D correctness --ignore-path .gitignore",
     "lint:eslint": "eslint . --fix",
     "lint": "run-s lint:*",
+    "format-check": "prettier --check *.ts",
+    "check": "run-s type-check lint format-check",
     "format": "prettier --write *.ts"
   },
   "keywords": [
