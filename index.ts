@@ -3,6 +3,7 @@ import * as A from "@automerge/automerge-repo";
 // import * as Cabbages from "cabbages";
 
 export const changeSubtree = Symbol("changeSubtree");
+export const pathToSubtree = Symbol("pathToSubtree");
 
 export type Incomplete<T> = {
   [P in keyof T]?: T[P];
@@ -14,7 +15,10 @@ export type Ro<T> = {
 };
 
 export type Proxy<T> = {
-  [changeSubtree]: (changeSubtreeCallback: (subtree: T) => void) => void;
+  [changeSubtree]: (
+    changeSubtreeCallback: (subtree: T, pathToSubtree: Property[]) => void,
+  ) => void;
+  [pathToSubtree]: Property[];
 };
 
 /// `Rop` stands for Read-Only Proxy.
@@ -25,12 +29,11 @@ export type Proxy<T> = {
 /// than the whole document.
 export type Rop<T> = Ro<T> & Proxy<T>;
 
+export type Property = string | number;
+
 /// Creates a Vue-reactive proxy object of the a document, given a doc handle.
 export function makeReactive<T>(handle: A.DocHandle<T>): Ref<Rop<A.Doc<T>>> {
-  function makeProxy<U extends object>(
-    obj: U,
-    path: (string | number)[],
-  ): Rop<U> {
+  function makeProxy<U extends object>(obj: U, path: Property[]): Rop<U> {
     let proxy;
 
     // Include all regular properties in the proxy object, creating proxies
@@ -65,17 +68,21 @@ export function makeReactive<T>(handle: A.DocHandle<T>): Ref<Rop<A.Doc<T>>> {
 
     // Add custom methods as symbol properties, so that they don't interfere with regular usage.
     (proxy[changeSubtree] as (
-      changeSubtreeCallback: (subtree: U) => void,
-    ) => void) = (changeSubtreeCallback: (subtree: U) => void) => {
+      changeSubtreeCallback: (subtree: U, pathToSubtree: Property[]) => void,
+    ) => void) = (
+      changeSubtreeCallback: (subtree: U, pathToSubtree: Property[]) => void,
+    ) => {
       // `changeSubtree` operates on `A.DocHandle` directly.
       // The changes to the `A.DocHandle` are then applied to `newObj` via
       // the `on('change')` handler.
       handle.change((doc: A.Doc<T>) => {
         let subtree: any = doc;
         for (const pathSegment of path) subtree = subtree[pathSegment];
-        changeSubtreeCallback(subtree as U);
+        changeSubtreeCallback(subtree as U, path);
       });
     };
+
+    (proxy[pathToSubtree] as Property[]) = path;
 
     // FIXME: Slow? https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Object/setPrototypeOf
     // Object.setPrototypeOf(proxy, Object.getPrototypeOf(obj));
