@@ -7,6 +7,9 @@
     "url": "git+https://github.com/Limeth/automerge-diy-vue-hooks.git"
   },
   "main": "index.ts",
+  "files": [
+    "index.ts"
+  ],
   "scripts": {
     "type-check": "vue-tsc --build",
     "lint:oxlint": "oxlint . --fix -D correctness --ignore-path .gitignore",
